@@ -1,108 +1,104 @@
 # Preparing a MongoDB + Hive Experimental Environment
 
-Guía completa de instalación, configuración y puesta en marcha del entorno
-experimental utilizado en el estudio de eficiencia energética sobre MongoDB 8.0
-y Apache Hive 3.1.3 con benchmark TPC-H (SF=5).
+Complete guide to install, configure and start up the experimental environment
+used in the energy-efficiency study on MongoDB 8.0 and Apache Hive 3.1.3 with the
+TPC-H benchmark (SF=5).
 
 ---
 
-## Tabla de contenidos
+## Table of contents
 
-- [Requerimientos de hardware](#requerimientos-de-hardware)
-- [Requerimientos de software](#requerimientos-de-software)
-- [1. Configuración inicial de los nodos](#1-configuración-inicial-de-los-nodos)
-- [2. MongoDB — Clúster Sharded](#2-mongodb--clúster-sharded)
-- [3. MongoDB — Modo Centralizado](#3-mongodb--modo-centralizado)
-- [4. Hadoop + Hive — Clúster Fragmentado](#4-hadoop--hive--clúster-fragmentado)
-- [5. Hadoop + Hive — Modo Centralizado](#5-hadoop--hive--modo-centralizado)
+- [Hardware requirements](#hardware-requirements)
+- [Software requirements](#software-requirements)
+- [1. Initial node configuration](#1-initial-node-configuration)
+- [2. MongoDB — Sharded Cluster](#2-mongodb--sharded-cluster)
+- [3. MongoDB — Centralized Mode](#3-mongodb--centralized-mode)
+- [4. Hadoop + Hive — Fragmented Cluster](#4-hadoop--hive--fragmented-cluster)
+- [5. Hadoop + Hive — Centralized Mode](#5-hadoop--hive--centralized-mode)
 - [6. Scaphandre](#6-scaphandre)
-- [7. Generación de datos TPC-H](#7-generación-de-datos-tpc-h)
-- [8. Dependencias Python](#8-dependencias-python)
-- [9. Verificación del entorno completo](#9-verificación-del-entorno-completo)
+- [7. TPC-H data generation](#7-tpc-h-data-generation)
+- [8. Python dependencies](#8-python-dependencies)
+- [9. Full environment verification](#9-full-environment-verification)
 
 ---
 
-## Requerimientos de hardware
+## Hardware requirements
 
-| Componente        | Mínimo                                               | Recomendado                               |
-|-------------------|------------------------------------------------------|-------------------------------------------|
-| Nodos             | 3                                                    | 3 o más                                   |
-| Procesador        | Intel Core i3 6.ª gen (2 núcleos, 4 hilos) ≥3,0 GHz | Intel Core i5/i7 8.ª gen (4+ núcleos)    |
-| RAM por nodo      | 12 GB DDR4                                           | 32 GB DDR4                                |
-| Almacenamiento    | SSD ≥240 GB                                          | SSD NVMe ≥500 GB                          |
-| Sistema Operativo | Ubuntu 20.04 LTS (64 bits)                           | Ubuntu 22.04 / 24.04 LTS                  |
-| Red               | Ethernet 100 Mbps, IP fija por nodo                  | Ethernet Gigabit con switch dedicado      |
-| Conectividad      | SSH sin contraseña entre todos los nodos             | SSH sin contraseña entre todos los nodos  |
+| Component        | Minimum                                              | Recommended                              |
+| ---------------- | ---------------------------------------------------- | ---------------------------------------- |
+| Nodes            | 3                                                    | 3 or more                                |
+| Processor        | Intel Core i3 6th gen (2 cores, 4 threads) ≥3.0 GHz  | Intel Core i5/i7 8th gen (4+ cores)      |
+| RAM per node     | 12 GB DDR4                                           | 32 GB DDR4                               |
+| Storage          | SSD ≥240 GB                                          | NVMe SSD ≥500 GB                         |
+| Operating System | Ubuntu 20.04 LTS (64-bit)                            | Ubuntu 22.04 / 24.04 LTS                 |
+| Network          | 100 Mbps Ethernet, static IP per node                | Gigabit Ethernet with a dedicated switch |
+| Connectivity     | Passwordless SSH between all nodes                    | Passwordless SSH between all nodes       |
 
-> **Requisito indispensable:** el procesador debe soportar **Intel RAPL**
-> (*Running Average Power Limit*), requerido por Scaphandre para la medición
-> de consumo energético. Procesadores Intel Skylake (6.ª gen) o posterior
-> cumplen este requisito. Para AMD se requiere el módulo `amd_energy` del
-> kernel Linux.
+> **Mandatory requirement:** the processor must support **Intel RAPL** (*Running Average Power Limit*), required by Scaphandre for energy-consumption measurement. Intel Skylake (6th gen) processors or later meet this requirement. For AMD, the Linux kernel `amd_energy` module is required.
 
 ---
 
-## Requerimientos de software
+## Software requirements
 
-| Componente     | Versión mínima | Versión utilizada |
-|----------------|----------------|-------------------|
-| Java (OpenJDK) | 8              | 11                |
-| Python         | 3.8            | 3.10              |
-| MongoDB        | 7.0            | 8.0.17            |
-| Apache Hadoop  | 3.3.0          | 3.3.6             |
-| Apache Hive    | 3.1.0          | 3.1.3             |
-| Scaphandre     | 2.0.0          | 2.6.0             |
-| TPC-H dbgen    | 2.18.0         | 2.18.0            |
-| Git            | 2.x            | —                 |
-| Bash           | 5.x            | —                 |
+| Component      | Minimum version | Version used |
+| -------------- | --------------- | ------------ |
+| Java (OpenJDK) | 8               | 11           |
+| Python         | 3.8             | 3.10         |
+| MongoDB        | 7.0             | 8.0.17       |
+| Apache Hadoop  | 3.3.0           | 3.3.6        |
+| Apache Hive    | 3.1.0           | 3.1.3        |
+| Scaphandre     | 2.0.0           | 2.6.0        |
+| TPC-H dbgen    | 2.18.0          | 2.18.0       |
+| Git            | 2.x             | —            |
+| Bash           | 5.x             | —            |
 
-**Bibliotecas Python:**
+**Python libraries:**
 
-| Biblioteca | Versión mínima | Versión utilizada |
-|------------|----------------|-------------------|
-| pymongo    | 4.0            | 4.7.0             |
-| pyhive     | 0.6.5          | 0.6.5             |
-| pandas     | 1.3.0          | 2.2.2             |
-| numpy      | 1.21.0         | 2.0.2             |
-| scipy      | 1.7.0          | 1.13.0            |
-| matplotlib | 3.4.0          | 3.9.0             |
-| seaborn    | 0.11.0         | 0.13.2            |
+| Library    | Minimum version | Version used |
+| ---------- | --------------- | ------------ |
+| pymongo    | 4.0             | 4.7.0        |
+| pyhive     | 0.6.5           | 0.6.5        |
+| pandas     | 1.3.0           | 2.2.2        |
+| numpy      | 1.21.0          | 2.0.2        |
+| scipy      | 1.7.0           | 1.13.0       |
+| matplotlib | 3.4.0           | 3.9.0        |
+| seaborn    | 0.11.0          | 0.13.2       |
 
 ---
 
-## 1. Configuración inicial de los nodos
+## 1. Initial node configuration
 
-Ejecutar en los **tres nodos**:
+Run on the **three nodes**:
 
-```bash
-# Actualizar el sistema
+```
+# Update the system
 sudo apt update && sudo apt upgrade -y
 
-# Instalar dependencias base
+# Install base dependencies
 sudo apt install -y openjdk-11-jdk python3 python3-pip git \
     build-essential wget curl
 
-# Verificar Java
+# Verify Java
 java -version
 
-# Configurar /etc/hosts en los tres nodos
+# Configure /etc/hosts on the three nodes
 echo "10.150.45.251  nodo1" | sudo tee -a /etc/hosts
 echo "10.150.45.252  nodo2" | sudo tee -a /etc/hosts
 echo "10.150.45.253  nodo3" | sudo tee -a /etc/hosts
 ```
 
-Configurar SSH sin contraseña desde cada nodo hacia todos los demás:
+Set up passwordless SSH from each node to all the others:
 
-```bash
-# En cada nodo, generar clave SSH
+```
+# On each node, generate an SSH key
 ssh-keygen -t rsa -b 4096 -N "" -f ~/.ssh/id_rsa
 
-# Copiar clave pública a todos los nodos
+# Copy the public key to all nodes
 ssh-copy-id usuario@nodo1
 ssh-copy-id usuario@nodo2
 ssh-copy-id usuario@nodo3
 
-# Verificar conectividad
+# Verify connectivity
 ssh nodo1 "hostname"
 ssh nodo2 "hostname"
 ssh nodo3 "hostname"
@@ -110,11 +106,11 @@ ssh nodo3 "hostname"
 
 ---
 
-## 2. MongoDB — Clúster Sharded
+## 2. MongoDB — Sharded Cluster
 
-Instalar MongoDB 8.0 en los **tres nodos**:
+Install MongoDB 8.0 on the **three nodes**:
 
-```bash
+```
 curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc \
   | sudo gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor
 
@@ -127,9 +123,9 @@ sudo apt update && sudo apt install -y mongodb-org
 
 ### Config Server (nodo1)
 
-Crear `/etc/mongod_configsvr.conf`:
+Create `/etc/mongod_configsvr.conf`:
 
-```yaml
+```
 storage:
   dbPath: /var/lib/mongodb/configsvr
 net:
@@ -141,11 +137,11 @@ sharding:
   clusterRole: configsvr
 ```
 
-```bash
+```
 sudo mongod --config /etc/mongod_configsvr.conf --fork \
     --logpath /var/log/mongodb/configsvr.log
 
-# Inicializar el replica set del config server
+# Initialize the config server replica set
 mongosh --port 27019 --eval \
   "rs.initiate({_id:'configReplSet', \
   configsvr:true, members:[{_id:0,host:'nodo1:27019'}]})"
@@ -153,9 +149,9 @@ mongosh --port 27019 --eval \
 
 ### Shards (nodo1, nodo2, nodo3)
 
-Crear `/etc/mongod_shardN.conf` en cada nodo (reemplazar `N` por 1, 2 o 3):
+Create `/etc/mongod_shardN.conf` on each node (replace `N` with 1, 2 or 3):
 
-```yaml
+```
 storage:
   dbPath: /var/lib/mongodb/shardN
 net:
@@ -167,37 +163,37 @@ sharding:
   clusterRole: shardsvr
 ```
 
-```bash
+```
 sudo mongod --config /etc/mongod_shardN.conf --fork \
     --logpath /var/log/mongodb/shardN.log
 
-# Inicializar replica set de cada shard (ejecutar en cada nodo)
+# Initialize each shard's replica set (run on each node)
 mongosh --port 27018 --eval \
   "rs.initiate({_id:'shardNReplSet', \
   members:[{_id:0,host:'nodoN:27018'}]})"
 ```
 
-### Mongos — enrutador (nodo1)
+### Mongos — router (nodo1)
 
-```bash
+```
 mongos --configdb configReplSet/nodo1:27019 \
   --port 27017 --bind_ip 0.0.0.0 \
   --fork --logpath /var/log/mongodb/mongos.log
 
-# Añadir los shards al clúster
+# Add the shards to the cluster
 mongosh --port 27017 --eval "sh.addShard('shard1ReplSet/nodo1:27018')"
 mongosh --port 27017 --eval "sh.addShard('shard2ReplSet/nodo2:27018')"
 mongosh --port 27017 --eval "sh.addShard('shard3ReplSet/nodo3:27018')"
 
-# Verificar estado del clúster
+# Verify cluster status
 mongosh --port 27017 --eval "sh.status()"
 ```
 
-### Habilitar sharding por colección (clave hash)
+### Enable per-collection sharding (hashed key)
 
-```javascript
-// Ejecutar en mongosh --port 27017
-// Reemplazar "tpch_indices" por el nombre de BD correspondiente
+```
+// Run in mongosh --port 27017
+// Replace "tpch_indices" with the corresponding database name
 use tpch_indices
 
 sh.enableSharding("tpch_indices")
@@ -214,14 +210,13 @@ sh.shardCollection("tpch_indices.region",    { _id: "hashed" })
 
 ---
 
-## 3. MongoDB — Modo Centralizado
+## 3. MongoDB — Centralized Mode
 
-Para el despliegue centralizado, MongoDB se configura como instancia
-**standalone** en `nodo1`, sin sharding ni replica sets.
+For the centralized deployment, MongoDB is configured as a **standalone** instance on `nodo1`, without sharding or replica sets.
 
-Crear `/etc/mongod_standalone.conf`:
+Create `/etc/mongod_standalone.conf`:
 
-```yaml
+```
 storage:
   dbPath: /var/lib/mongodb/standalone
 net:
@@ -229,36 +224,37 @@ net:
   bindIp: 0.0.0.0
 ```
 
-```bash
+```
 sudo mongod --config /etc/mongod_standalone.conf --fork \
     --logpath /var/log/mongodb/standalone.log
 
-# Verificar
+# Verify
 mongosh --port 27017 --eval "db.adminCommand({ping:1})"
 ```
 
 ---
 
-## 4. Hadoop + Hive — Clúster Fragmentado
+## 4. Hadoop + Hive — Fragmented Cluster
 
-### Instalación de Hadoop 3.3.6 (tres nodos)
+### Hadoop 3.3.6 installation (three nodes)
 
-```bash
+```
 wget https://downloads.apache.org/hadoop/common/hadoop-3.3.6/hadoop-3.3.6.tar.gz
 tar -xzf hadoop-3.3.6.tar.gz -C /opt/
 export HADOOP_HOME=/opt/hadoop-3.3.6
 export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
 
-# Configurar JAVA_HOME en hadoop-env.sh
+# Configure JAVA_HOME in hadoop-env.sh
 echo "export JAVA_HOME=$(dirname $(dirname \
   $(readlink -f $(which java))))" \
   >> $HADOOP_HOME/etc/hadoop/hadoop-env.sh
 ```
 
-### Archivos de configuración clave (nodo3 — master)
+### Key configuration files (nodo3 — master)
 
 **`core-site.xml`**
-```xml
+
+```
 <configuration>
   <property>
     <name>fs.defaultFS</name>
@@ -268,7 +264,8 @@ echo "export JAVA_HOME=$(dirname $(dirname \
 ```
 
 **`hdfs-site.xml`**
-```xml
+
+```
 <configuration>
   <property>
     <name>dfs.replication</name>
@@ -286,7 +283,8 @@ echo "export JAVA_HOME=$(dirname $(dirname \
 ```
 
 **`yarn-site.xml`**
-```xml
+
+```
 <configuration>
   <property>
     <name>yarn.resourcemanager.hostname</name>
@@ -299,53 +297,50 @@ echo "export JAVA_HOME=$(dirname $(dirname \
 </configuration>
 ```
 
-**`workers`** (en `$HADOOP_HOME/etc/hadoop/workers`):
+**`workers`** (in `$HADOOP_HOME/etc/hadoop/workers`): nodo2 and nodo3.
 
-# Nodo 2 y 3 
+### Start HDFS and YARN
 
-### Iniciar HDFS y YARN
-
-```bash
-# Formatear NameNode (solo la primera vez)
+```
+# Format the NameNode (only the first time)
 hdfs namenode -format
 
-# Iniciar servicios desde nodo3
+# Start the services from nodo3
 start-dfs.sh
 start-yarn.sh
 
-# Verificar (nodo3 debe mostrar NameNode y ResourceManager)
+# Verify (nodo3 must show NameNode and ResourceManager)
 jps
-# nodo1 y nodo2 deben mostrar DataNode y NodeManager
+# nodo1 and nodo2 must show DataNode and NodeManager
 ssh nodo1 "jps"
 ssh nodo2 "jps"
 ```
 
-### Instalación de Hive 3.1.3 (nodo3)
+### Hive 3.1.3 installation (nodo3)
 
-```bash
+```
 wget https://downloads.apache.org/hive/hive-3.1.3/apache-hive-3.1.3-bin.tar.gz
 tar -xzf apache-hive-3.1.3-bin.tar.gz -C /opt/
 export HIVE_HOME=/opt/apache-hive-3.1.3-bin
 export PATH=$PATH:$HIVE_HOME/bin
 
-# Inicializar metastore
+# Initialize the metastore
 schematool -dbType derby -initSchema
 
-# Levantar HiveServer2
+# Start HiveServer2
 hive --service hiveserver2 &
 
-# Verificar conexión
+# Verify the connection
 beeline -u jdbc:hive2://nodo3:10000 -e "SHOW DATABASES;"
 ```
 
-### Crear tablas TPC-H en formato ORC (cuatro variantes)
+### Create TPC-H tables in ORC format (four variants)
 
-A continuación se muestra el ejemplo para `lineitem`. Repetir para las
-8 tablas TPC-H (`orders`, `customer`, `part`, `supplier`, `partsupp`,
-`nation`, `region`).
+Below is the example for `lineitem`. Repeat for the 8 TPC-H tables (`orders`, `customer`, `part`, `supplier`, `partsupp`, `nation`, `region`).
 
-**Baseline** — ORC sin bucketing ni compresión:
-```sql
+**Baseline** — ORC without bucketing or compression:
+
+```
 CREATE TABLE lineitem_baseline (
   l_orderkey BIGINT, l_partkey BIGINT, l_suppkey BIGINT,
   l_linenumber INT, l_quantity DECIMAL(15,2),
@@ -358,97 +353,100 @@ STORED AS ORC
 TBLPROPERTIES ("orc.compress"="NONE");
 ```
 
-**Índices** — ORC + Bucketing (sin compresión):
-```sql
-CREATE TABLE lineitem_indices ( /* mismas columnas */ )
+**Indexes** — ORC + Bucketing (no compression):
+
+```
+CREATE TABLE lineitem_indices ( /* same columns */ )
 CLUSTERED BY (l_orderkey) INTO 8 BUCKETS
 STORED AS ORC
 TBLPROPERTIES ("orc.compress"="NONE");
 ```
 
-**Compresión** — ORC + Snappy (sin bucketing):
-```sql
-CREATE TABLE lineitem_compresion ( /* mismas columnas */ )
+**Compression** — ORC + Snappy (no bucketing):
+
+```
+CREATE TABLE lineitem_compresion ( /* same columns */ )
 STORED AS ORC
 TBLPROPERTIES ("orc.compress"="SNAPPY");
 ```
 
-**Índices+Compresión** — ORC + Bucketing + Snappy:
-```sql
-CREATE TABLE lineitem_indice_compresion ( /* mismas columnas */ )
+**Indexes+Compression** — ORC + Bucketing + Snappy:
+
+```
+CREATE TABLE lineitem_indice_compresion ( /* same columns */ )
 CLUSTERED BY (l_orderkey) INTO 8 BUCKETS
 STORED AS ORC
 TBLPROPERTIES ("orc.compress"="SNAPPY");
 ```
 
-Cargar datos desde HDFS en cada tabla:
-```sql
+Load the data from HDFS into each table:
+
+```
 LOAD DATA INPATH '/tpch/lineitem.tbl' INTO TABLE lineitem_baseline;
--- Repetir para cada variante y cada tabla
+-- Repeat for each variant and each table
 ```
 
 ---
 
-## 5. Hadoop + Hive — Modo Centralizado
+## 5. Hadoop + Hive — Centralized Mode
 
-Para el despliegue centralizado, Hadoop se configura en modo
-**pseudo-distribuido de nodo único** en `nodo3`.
+For the centralized deployment, Hadoop is configured in **single-node pseudo-distributed** mode on `nodo3`.
 
-Modificar `hdfs-site.xml`:
-```xml
+Modify `hdfs-site.xml`:
+
+```
 <property>
   <name>dfs.replication</name>
   <value>1</value>
 </property>
 ```
 
-Modificar `workers` para que contenga únicamente `nodo3`.
-El resto del procedimiento de instalación y creación de tablas
-es idéntico al clúster fragmentado.
+Modify `workers` so that it contains only `nodo3`.
+The rest of the installation procedure and table creation is identical to the fragmented cluster.
 
 ---
 
 ## 6. Scaphandre
 
-Instalar en los **tres nodos**:
+Install on the **three nodes**:
 
-```bash
-# Verificar soporte Intel RAPL
+```
+# Verify Intel RAPL support
 ls /sys/class/powercap/intel-rapl/
 
-# Descargar e instalar Scaphandre 2.6.0
+# Download and install Scaphandre 2.6.0
 wget https://github.com/hubblo-org/scaphandre/releases/\
 download/v2.6.0/scaphandre-2.6.0-x86_64-linux.tar.gz
 tar -xzf scaphandre-2.6.0-x86_64-linux.tar.gz
 sudo mv scaphandre /usr/local/bin/
 
-# Verificar instalación
+# Verify the installation
 scaphandre --version
 
-# Prueba de medición (10 muestras, intervalo 2 s)
+# Measurement test (10 samples, 2 s interval)
 sudo scaphandre json --step 2 --max-top-consumers 5 \
     --timeout 20 > /tmp/test_scaphandre.json
 ```
 
 ---
 
-## 7. Generación de datos TPC-H
+## 7. TPC-H data generation
 
-```bash
+```
 git clone https://github.com/electrum/tpch-dbgen.git
 cd tpch-dbgen
 make
 
-# Generar SF=5 (~5 GB)
+# Generate SF=5 (~5 GB)
 ./dbgen -s 5
 
-# Verificar archivos generados (esperado: 8 archivos .tbl, total ~5 GB)
+# Verify the generated files (expected: 8 .tbl files, ~5 GB total)
 ls -lh *.tbl
 ```
 
-Cargar los archivos `.tbl` a HDFS para Hive:
+Load the `.tbl` files into HDFS for Hive:
 
-```bash
+```
 hdfs dfs -mkdir -p /tpch
 hdfs dfs -put *.tbl /tpch/
 hdfs dfs -ls /tpch/
@@ -456,9 +454,9 @@ hdfs dfs -ls /tpch/
 
 ---
 
-## 8. Dependencias Python
+## 8. Python dependencies
 
-```bash
+```
 pip3 install \
   pymongo==4.7.0 \
   pyhive==0.6.5 \
@@ -471,13 +469,13 @@ pip3 install \
 
 ---
 
-## 9. Verificación del entorno completo
+## 9. Full environment verification
 
-```bash
-# MongoDB clúster sharded
+```
+# MongoDB sharded cluster
 mongosh --port 27017 --eval "sh.status()"
 
-# MongoDB standalone (centralizado)
+# MongoDB standalone (centralized)
 mongosh --port 27017 --eval "db.adminCommand({ping:1})"
 
 # Hadoop HDFS
@@ -489,9 +487,6 @@ beeline -u jdbc:hive2://nodo3:10000 -e "SHOW DATABASES;"
 # Scaphandre
 sudo scaphandre --version
 
-# Bibliotecas Python
+# Python libraries
 python3 -c "import pymongo, pyhive, pandas, numpy, scipy; print('OK')"
 ```
-
-
-# -Mongo-Hive-Environment
